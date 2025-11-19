@@ -53,14 +53,12 @@ dist/
 
 
 # ignore embedded repo
-Final Version/
 
 # ignore macOS resource-fork files
 ._*
 .DS_Store
 
 # ignore embedded repo
-Final Version/
 
 # ignore final version secrets
 Final Version/secrets/
