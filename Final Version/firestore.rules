@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return isSignedIn() ? request.auth.token.role : null;
+    }
+
+    function hasRole(allowed) {
+      return isSignedIn() && allowed.hasAny([role()]);
+    }
+
+    match /organizations/{orgId} {
+      allow read: if hasRole(['admin', 'management']);
+      allow create, update, delete: if hasRole(['admin']);
+    }
+
+    match /users/{userId} {
+      allow read: if hasRole(['admin']) || (isSignedIn() && request.auth.uid == userId);
+      allow create, update: if hasRole(['admin']) || (isSignedIn() && request.auth.uid == userId);
+      allow delete: if hasRole(['admin']);
+    }
+
+    match /classes/{classId} {
+      allow read: if hasRole(['admin', 'teacher', 'management']);
+      allow create, update, delete: if hasRole(['admin', 'teacher']);
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if hasRole(['admin', 'teacher']);
+    }
+
+    match /attendance/{recordId} {
+      allow read: if isSignedIn();
+      allow create: if hasRole(['admin', 'teacher'])
+        || (isSignedIn() && request.auth.uid == request.resource.data.userId);
+      allow update: if hasRole(['admin', 'teacher']);
+      allow delete: if hasRole(['admin']);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

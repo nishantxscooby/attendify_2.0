@@ -1,0 +1,30 @@
+version: "3.9"
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: attendance_api
+    ports:
+      - "8000:8000"
+    environment:
+      - FACENET_URL=http://facenet:8001
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      # If you use a service account JSON locally:
+      - GOOGLE_APPLICATION_CREDENTIALS=/secrets/sa.json
+    volumes:
+      - .:/app
+      - ./secrets:/secrets:ro
+    depends_on:
+      - facenet
+
+  facenet:
+    build:
+      context: .
+      dockerfile: Dockerfile.facenet
+    container_name: facenet_service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./facenet_service:/app/facenet_service

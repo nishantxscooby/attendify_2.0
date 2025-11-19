@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: attendance-api
+    env: docker
+    plan: free
+    dockerfilePath: Dockerfile.api
+    envVars:
+      - key: FACENET_URL
+        value: ""   # set after facenet-service is deployed
+      - key: FIREBASE_PROJECT_ID
+        value: attendify-nishant
+      - key: ALLOWED_ORIGINS
+        value: https://attendify-nishant.web.app
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false
+  - type: web
+    name: facenet-service
+    env: docker
+    plan: free
+    dockerfilePath: Dockerfile.facenet
