@@ -70,3 +70,8 @@ Final Version/*.key
 Final Version/*.pem
 Final Version/*.p12
 Final Version/.git/
+
+# Ignore SQLite DB junk
+*.db-wal
+*.db-shm
+*.db
