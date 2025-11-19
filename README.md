@@ -1,3 +1,11 @@
+[![CI](https://github.com/nishantxscooby/attendify_2.0/actions/workflows/ci.yml/badge.svg)](https://github.com/nishantxscooby/attendify_2.0/actions/workflows/ci.yml) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) 
+[![Stars](https://img.shields.io/github/stars/nishantxscooby/attendify_2.0.svg)](https://github.com/nishantxscooby/attendify_2.0/stargazers) 
+[![Forks](https://img.shields.io/github/forks/nishantxscooby/attendify_2.0.svg)](https://github.com/nishantxscooby/attendify_2.0/network/members) 
+[![Issues](https://img.shields.io/github/issues/nishantxscooby/attendify_2.0.svg)](https://github.com/nishantxscooby/attendify_2.0/issues) 
+[![Pull Requests](https://img.shields.io/github/issues-pr/nishantxscooby/attendify_2.0.svg)](https://github.com/nishantxscooby/attendify_2.0/pulls) 
+[![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://github.com/nishantxscooby/attendify_2.0) 
+
 # Attendify 2.0  
 Smart Attendance System using Face Recognition, Geofencing, and Real-Time Analytics
 
