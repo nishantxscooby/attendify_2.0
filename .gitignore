@@ -1,0 +1,67 @@
+
+# --- Environment / Secrets ---
+.env
+.env.*
+*.env
+credentials.*
+secrets.*
+
+# --- Private Keys ---
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+id_rsa
+id_ed25519
+
+# --- Python virtual environments ---
+.venv/
+venv/
+*.venv
+
+# --- Node / Dependencies ---
+node_modules/
+
+# --- Flutter / Dart tooling ---
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# --- Flutter build outputs ---
+build/
+.android/
+.ios/
+
+# --- Python cache ---
+__pycache__/
+
+# --- OS / Editor junk ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+
+# --- IDE directories ---
+.vscode/
+.idea/
+
+# --- Other build directories ---
+dist/
+
+
+# ignore embedded repo
+Final Version/
+
+# ignore macOS resource-fork files
+._*
+.DS_Store
+
+# ignore embedded repo
+Final Version/
+
+# ignore final version secrets
+Final Version/secrets/
+Final Version/secrets/sa.json
