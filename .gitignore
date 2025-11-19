@@ -75,3 +75,11 @@ Final Version/.git/
 *.db-wal
 *.db-shm
 *.db
+
+# ignore DB files and SQLite write-ahead logs
+Final Version/**/instance/*.db
+Final Version/**/instance/*.db-wal
+Final Version/**/instance/*.db-shm
+*.db
+*.db-wal
+*.db-shm
