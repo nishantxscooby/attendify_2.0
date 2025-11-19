@@ -13,7 +13,7 @@
 	<key>PROJECT_ID</key>
 	<string>attendify-nishant</string>
 	<key>STORAGE_BUCKET</key>
-	<string>attendify-nishant.firebasestorage.app</string>
+	<string></string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:801891116344:ios:31e07b5e5f5d20cd8a8dcd</string>
+	<string></string>
 </dict>
 </plist>
