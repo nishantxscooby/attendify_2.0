@@ -1,0 +1,44 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'providers/auth_provider.dart';
+import 'screens/login_screen.dart';
+import 'screens/dashboard_screen.dart';
+
+void main() {
+  runApp(const AttendanceApp());
+}
+
+class AttendanceApp extends StatefulWidget {
+  const AttendanceApp({super.key});
+
+  @override
+  State<AttendanceApp> createState() => _AttendanceAppState();
+}
+
+class _AttendanceAppState extends State<AttendanceApp> {
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+      ],
+      child: MaterialApp(
+        title: 'Attendance App',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(primarySwatch: Colors.blue),
+        initialRoute: '/',
+        routes: {
+          LoginScreen.routeName: (_) => const LoginScreen(),
+          DashboardScreen.routeName: (ctx) {
+            final args = ModalRoute.of(ctx)?.settings.arguments as Map<String, dynamic>?;
+            final token = args?['token'] as String?;
+            if (token == null || token.isEmpty) {
+              return const LoginScreen();
+            }
+            return DashboardScreen(token: token);
+          },
+        },
+      ),
+    );
+  }
+}

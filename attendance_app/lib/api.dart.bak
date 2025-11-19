@@ -1,0 +1,234 @@
+/// REST client bridging the Flutter dashboard with the Flask backend exposed at
+/// `/api`. Wraps HTTP requests, injects JWT bearer headers, and returns decoded
+/// JSON for authentication, attendance, analytics, schedule, and geofence flows.
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:http/http.dart' as http;
+
+/// Thin client for the attendance backend hosted at [baseUrl].
+class Api {
+  /// Replace this with your Mac's LAN IP (same Wi-Fi as the iPhone) when testing on a physical device.
+  /// For the iOS simulator keep this as `127.0.0.1`. Find your LAN IP with `ipconfig getifaddr en0`.
+  static const String kLanIp = '127.0.0.1';
+
+  /// Normalised base URL that works for both Android emulators and localhost driven builds.
+  late final String baseUrl = 'http://${_resolveHost()}:8000/api';
+
+  Api();
+
+  /// POST `/login/`
+  ///
+  /// Authenticates a staff member using [username] and [password]. Expects an
+  /// HTTP 200 response containing a JSON object with an `access_token` that is
+  /// later supplied as a bearer token. Non-200 responses or missing tokens throw
+  /// an [Exception].
+  Future<Map<String, dynamic>> login(String username, String password) async {
+    final response = await http.post(
+      _uri('/login/'),
+      headers: _jsonHeaders(),
+      body: jsonEncode({'username': username, 'password': password}),
+    );
+
+    final body = _tryDecodeMap(response.body);
+    final token = body['access_token'] as String?;
+
+    if (response.statusCode != 200 || token == null || token.isEmpty) {
+      debugPrint('LOGIN ERROR: status ${response.statusCode}, body: ${response.body}');
+      throw Exception('Login failed');
+    }
+
+    return body;
+  }
+
+  /// GET `/students/{studentUsername}/attendance/`
+  ///
+  /// Retrieves aggregate attendance metrics for [studentUsername] using the
+  /// provided JWT [jwt]. Returns a JSON object (HTTP 200) containing totals,
+  /// attended sessions, and calculated percentages. Throws on error codes.
+  Future<Map<String, dynamic>> attendanceInsights(
+    String studentUsername,
+    String jwt,
+  ) async {
+    final response = await http.get(
+      _uri('/students/$studentUsername/attendance/'),
+      headers: _authHeaders(jwt),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Insights request failed with status ${response.statusCode}');
+    }
+
+    final raw = _tryDecodeMap(response.body);
+    final total = _asInt(raw['total_sessions'] ?? raw['total']);
+    final attended = _asInt(raw['attended_sessions'] ?? raw['attended']);
+    final absent = _asInt(raw['absent_sessions'] ?? raw['absent']);
+    final percentage = (raw['percentage'] is num)
+        ? (raw['percentage'] as num).toDouble()
+        : (total == 0
+            ? 0.0
+            : attended / total * 100.0);
+
+    raw['total_sessions'] = total;
+    raw['attended'] = attended;
+    raw['attended_sessions'] = attended;
+    raw['absent'] = absent;
+    raw['absent_sessions'] = absent;
+    raw['percentage'] = percentage;
+    return raw;
+  }
+
+  /// GET `/students/{studentUsername}/marks/`
+  ///
+  /// Fetches course score data for [studentUsername]. Requires a bearer JWT
+  /// [jwt] and returns a JSON array (HTTP 200) where each item includes course
+  /// metadata, scores, and max scores. Throws if the backend responds otherwise.
+  Future<List<dynamic>> marks(String studentUsername, String jwt) async {
+    final response = await http.get(
+      _uri('/students/$studentUsername/marks/'),
+      headers: _authHeaders(jwt),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Marks request failed with status ${response.statusCode}');
+    }
+
+    try {
+      return _decodeJsonList(response.body);
+    } catch (e) {
+      debugPrint('FETCH ERROR: $e');
+      return const <dynamic>[];
+    }
+  }
+
+  /// GET `/students/{studentUsername}/schedule/`
+  ///
+  /// Retrieves upcoming sessions for [studentUsername]. On HTTP 200 returns a
+  /// JSON list containing course codes, start timestamps, and IDs used by the
+  /// UI schedule. Throws when the backend returns a non-success status.
+  Future<List<dynamic>> schedule(String studentUsername, String jwt) async {
+    final response = await http.get(
+      _uri('/students/$studentUsername/schedule/'),
+      headers: _authHeaders(jwt),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Schedule request failed with status ${response.statusCode}');
+    }
+
+    try {
+      return _decodeJsonList(response.body);
+    } catch (e) {
+      debugPrint('FETCH ERROR: $e');
+      return const <dynamic>[];
+    }
+  }
+
+  /// POST `/attendance/geofence-check`
+  ///
+  /// Validates whether [lat] and [lon] fall inside the permitted attendance
+  /// geofence using the supplied JWT [jwt]. Returns a JSON object with an
+  /// `allowed` flag on HTTP 200; throws for any other response code.
+  Future<Map<String, dynamic>> geofenceCheck(
+    double lat,
+    double lon,
+    String jwt,
+  ) async {
+    final response = await http.post(
+      _uri('/attendance/geofence-check'),
+      headers: _authHeaders(jwt),
+      body: jsonEncode({'latitude': lat, 'longitude': lon}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Geofence check failed with status ${response.statusCode}');
+    }
+
+    return _tryDecodeMap(response.body);
+  }
+
+  /// POST `/attendance/mark/face`
+  ///
+  /// Submits a facial attendance capture for [studentUsername] and [sessionId]
+  /// using the base64 image payload [imageB64]. Requires JWT [jwt]; treats HTTP
+  /// 200 and 201 as success and returns the decoded JSON body. 502 responses
+  /// (FaceNet failure) or any other status raise an [Exception].
+  Future<Map<String, dynamic>> markFace(
+    String studentUsername,
+    int sessionId,
+    String imageB64,
+    String jwt,
+  ) async {
+    final response = await http.post(
+      _uri('/attendance/mark/face'),
+      headers: _authHeaders(jwt),
+      body: jsonEncode({
+        'student_username': studentUsername,
+        'session_id': sessionId,
+        'image_base64': imageB64,
+      }),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Face attendance failed with status ${response.statusCode}');
+    }
+
+    return _tryDecodeMap(response.body);
+  }
+
+  String _resolveHost() {
+    if (Platform.isAndroid) return '10.0.2.2';
+    if (Platform.isIOS || Platform.isMacOS) return '127.0.0.1';
+    return kLanIp;
+  }
+
+  Uri _uri(String path) {
+    final String normalisedPath = path.startsWith('/') ? path : '/$path';
+    return Uri.parse('$baseUrl$normalisedPath');
+  }
+
+  Map<String, String> _jsonHeaders() => const {
+        'Content-Type': 'application/json',
+      };
+
+  Map<String, String> _authHeaders(String jwt) => {
+        ..._jsonHeaders(),
+        'Authorization': 'Bearer $jwt',
+      };
+
+  /// Ensures [source] decodes to a JSON map, throwing if the payload is not an
+  /// object so that callers do not process malformed API responses.
+  Map<String, dynamic> _decodeJsonMap(String source) {
+    final dynamic decoded = jsonDecode(source);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    throw Exception('Expected a JSON object but got ${decoded.runtimeType}');
+  }
+
+  /// Ensures [source] decodes to a JSON list, throwing when the payload is not
+  /// an array so callers can rely on iterable results without extra checks.
+  List<dynamic> _decodeJsonList(String source) {
+    final dynamic decoded = jsonDecode(source);
+    if (decoded is List<dynamic>) {
+      return decoded;
+    }
+    throw Exception('Expected a JSON array but got ${decoded.runtimeType}');
+  }
+
+  Map<String, dynamic> _tryDecodeMap(String source) {
+    try {
+      return _decodeJsonMap(source);
+    } catch (e) {
+      debugPrint('FETCH ERROR: $e');
+      return <String, dynamic>{};
+    }
+  }
+
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+}

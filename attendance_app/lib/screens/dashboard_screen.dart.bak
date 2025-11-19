@@ -1,0 +1,442 @@
+/// Dashboard screen showing attendance insights, marks, and schedule while
+/// coordinating geolocation and face-attendance capture using packages such as
+/// `provider`, `fl_chart`, `geolocator`, `image_picker`, and `intl`.
+///
+/// The widget listens to both [AuthProvider] and [DataProvider], rendering one
+/// of three safe states (loading spinner, error with retry button, or the
+/// populated dashboard). All list/map reads are guarded with `?? []` / `?? {}`
+/// so null responses never crash the UI.
+import 'dart:convert';
+
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
+import '../api.dart';
+import '../providers/auth_provider.dart';
+import '../providers/data_provider.dart';
+import 'login_screen.dart';
+
+/// Displays the authenticated student dashboard with charts, lists, and the
+/// face-attendance action button. Redirects back to [LoginScreen] when the auth
+/// provider reports a missing token.
+class DashboardScreen extends StatefulWidget {
+  final String token;
+
+  const DashboardScreen({super.key, required this.token});
+
+  static const String routeName = '/dashboard';
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+/// Holds mutable state for [DashboardScreen], wiring together provider data,
+/// pull-to-refresh behaviour, and the location/camera workflow.
+class _DashboardScreenState extends State<DashboardScreen> {
+  final Api _api = Api();
+  final ImagePicker _imagePicker = ImagePicker();
+
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final token = context.read<AuthProvider>().token;
+      if (token != null) {
+        _refreshData(token);
+      }
+    });
+  }
+
+  /// Pulls the latest dashboard payload from [DataProvider] using the supplied
+  /// [token]. Sets [_loading] so the UI can show progress indicators while data
+  /// loads, then triggers a rebuild when complete.
+  Future<void> _refreshData(String token) async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      await context.read<DataProvider>().loadAll('student1', token);
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final dataProvider = context.watch<DataProvider>();
+    final token = auth.token;
+
+    if (token == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed(LoginScreen.routeName);
+      });
+      return const Scaffold(
+        body: SafeArea(
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    final padding = MediaQuery.paddingOf(context);
+
+    final Widget body;
+    if (_loading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (dataProvider.hasError) {
+      body = _buildErrorView(context, token, dataProvider.errorMessage);
+    } else {
+      body = RefreshIndicator(
+        onRefresh: () => _refreshData(token),
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            16 + padding.left,
+            16 + padding.top,
+            16 + padding.right,
+            16 + padding.bottom,
+          ),
+          children: [
+            _buildAttendanceCard(context, dataProvider),
+            const SizedBox(height: 16),
+            _buildMarksCard(context, dataProvider),
+            const SizedBox(height: 16),
+            _buildScheduleCard(context, dataProvider),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Student Dashboard'),
+      ),
+      body: SafeArea(child: body),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _markFaceAttendance(token),
+        label: const Text('Mark Face Attendance'),
+        icon: const Icon(Icons.face),
+      ),
+    );
+  }
+
+  /// Builds the attendance insights card, rendering a `fl_chart` pie chart and
+  /// textual summary derived from [provider.insights].
+  Widget _buildAttendanceCard(BuildContext context, DataProvider provider) {
+    final Map<String, dynamic>? insights = provider.insights;
+    final int totalSessions = _asInt(insights?['total_sessions'] ?? insights?['total']);
+    final int attendedSessions = _asInt(insights?['attended_sessions'] ?? insights?['attended']);
+    final int absentSessions = ((totalSessions - attendedSessions).clamp(0, totalSessions)).toInt();
+    final double percentage = provider.attendancePct;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Attendance Insights',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 180,
+              child: PieChart(
+                PieChartData(
+                  sectionsSpace: 2,
+                  centerSpaceRadius: 40,
+                  sections: [
+                    PieChartSectionData(
+                      value: attendedSessions.toDouble(),
+                      color: Colors.green,
+                      title: '${percentage.toStringAsFixed(1)}%',
+                      titleStyle: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(color: Colors.white),
+                    ),
+                    PieChartSectionData(
+                      value: absentSessions.toDouble(),
+                      color: Colors.redAccent,
+                      title: '',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Total sessions: $totalSessions'),
+            Text('Attended: $attendedSessions'),
+            Text('Absent: $absentSessions'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Builds the marks card showing course scores and percentages sourced from
+  /// [DataProvider.marksList].
+  Widget _buildMarksCard(BuildContext context, DataProvider provider) {
+    final marks = provider.marksList;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Marks',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            if (marks.isEmpty)
+              const Text('No marks available.')
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: marks.length,
+                separatorBuilder: (_, __) => const Divider(height: 16),
+                itemBuilder: (context, index) {
+                  final dynamic mark = marks[index];
+                  if (mark is Map<String, dynamic>) {
+                    final String courseCode = mark['course_code']?.toString() ?? 'Course';
+                    final num scoreRaw = mark['score'] is num
+                        ? mark['score'] as num
+                        : num.tryParse(mark['score']?.toString() ?? '0') ?? 0;
+                    final num maxScoreRaw = mark['max_score'] is num
+                        ? mark['max_score'] as num
+                        : num.tryParse(mark['max_score']?.toString() ?? '0') ?? 100;
+                    final double percentage = maxScoreRaw == 0
+                        ? 0
+                        : (scoreRaw.toDouble() / maxScoreRaw.toDouble()) * 100;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(courseCode),
+                      subtitle: Text('Score: ${scoreRaw.toString()} / ${maxScoreRaw.toString()}'),
+                      trailing: Text('${percentage.toStringAsFixed(1)}%'),
+                    );
+                  }
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(mark.toString()),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Builds the upcoming schedule card, formatting timestamps with `intl` based
+  /// on entries in [DataProvider.scheduleList].
+  Widget _buildScheduleCard(BuildContext context, DataProvider provider) {
+    final schedule = provider.scheduleList;
+    final dateFormat = DateFormat('MMM d, yyyy h:mm a');
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Upcoming Schedule',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            if (schedule.isEmpty)
+              const Text('No upcoming sessions.')
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: schedule.length,
+                separatorBuilder: (_, __) => const Divider(height: 16),
+                itemBuilder: (context, index) {
+                  final dynamic session = schedule[index];
+                  if (session is Map<String, dynamic>) {
+                    final String courseCode = session['course_code']?.toString() ?? 'Course';
+                    final String rawStart = session['starts_at']?.toString() ?? '';
+                    final DateTime? parsed = DateTime.tryParse(rawStart);
+                    final String formatted = parsed != null
+                        ? dateFormat.format(parsed.toLocal())
+                        : (rawStart.isEmpty ? 'TBD' : rawStart);
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(courseCode),
+                      subtitle: Text('Starts at: $formatted'),
+                    );
+                  }
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(session.toString()),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Handles the face-attendance flow triggered by the FAB.
+  ///
+  /// Steps: ensures location services and permissions via `geolocator`, validates
+  /// the coordinates with [Api.geofenceCheck], captures an image from the camera
+  /// using `image_picker`, selects the next session from [DataProvider], and calls
+  /// [Api.markFace]. Displays contextual snackbars and refreshes dashboard data on
+  /// completion.
+  Future<void> _markFaceAttendance(String token) async {
+    if (!mounted) return;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    try {
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Enable location services to continue.')),
+        );
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Location permission denied.')),
+        );
+        return;
+      }
+
+      final Position position = await Geolocator.getCurrentPosition();
+      final Map<String, dynamic> geofence = await _api.geofenceCheck(
+        position.latitude,
+        position.longitude,
+        token,
+      );
+
+      if (geofence['allowed'] != true) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              geofence['message']?.toString() ?? 'Outside the allowed area.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1024,
+      );
+
+      if (image == null) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Capture cancelled.')),
+        );
+        return;
+      }
+
+      final bytes = await image.readAsBytes();
+      final String imageB64 = base64Encode(bytes);
+
+      final schedule = context.read<DataProvider>().scheduleList;
+      if (schedule.isEmpty) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('No upcoming sessions available.')),
+        );
+        return;
+      }
+
+      final int? sessionId = _extractSessionId(schedule.first);
+      if (sessionId == null) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Unable to determine session ID.')),
+        );
+        return;
+      }
+
+      final result = await _api.markFace('student1', sessionId, imageB64, token);
+      final message = result['message']?.toString();
+      final created = result['created'] == true;
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(message ?? (created ? 'Attendance created.' : 'Attendance recorded.')),
+        ),
+      );
+
+      await _refreshData(token);
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Face mark failed: ${_trimError(e)}')),
+      );
+    }
+  }
+
+  /// Extracts a numeric session identifier from the dynamic schedule payload
+  /// returned by the backend.
+  int? _extractSessionId(dynamic session) {
+    if (session is Map<String, dynamic>) {
+      final dynamic raw = session['session_id'] ?? session['id'];
+      if (raw is int) return raw;
+      if (raw is num) return raw.toInt();
+      if (raw is String) return int.tryParse(raw);
+    }
+    return null;
+  }
+
+  /// Normalises numeric values from the backend into an [int] for display.
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  Widget _buildErrorView(BuildContext context, String token, String? message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message ?? 'Something went wrong while loading data.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _refreshData(token),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Trims the leading exception type from [error] to keep snackbar messages
+  /// concise.
+  String _trimError(Object error) {
+    final message = error.toString();
+    final parts = message.split(':');
+    return parts.length > 1 ? parts.sublist(1).join(':').trim() : message;
+  }
+}

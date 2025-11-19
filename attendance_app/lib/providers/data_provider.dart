@@ -1,0 +1,92 @@
+// Dashboard data provider based on `ChangeNotifier`.
+///
+/// Responsible for fetching the three independent dashboard payloads (attendance
+/// insights, marks, schedule). Each network call is wrapped in a try/catch, and
+/// failures set [_errorMessage] while resetting collections to safe defaults so
+/// the UI can render fallback states without crashing. Consumers can inspect
+/// [hasError] / [errorMessage] to decide whether to render error messaging or
+/// retry controls.
+import 'package:flutter/foundation.dart';
+
+import '../api.dart';
+
+/// Coordinates fetching the dashboard payload and exposes getters that the UI
+/// consumes when rendering cards, charts, and schedules. Updates propagate via
+/// `provider` listeners for immediate repaint.
+class DataProvider extends ChangeNotifier {
+  DataProvider() {
+    _resetData();
+  }
+
+  final Api _api = Api();
+
+  /// Attendance summary data returned by the server.
+  Map<String, dynamic>? insights;
+
+  /// Raw mark objects used to populate the marks card.
+  List<dynamic> marksList = [];
+
+  /// Raw schedule objects used to build the upcoming sessions card.
+  List<dynamic> scheduleList = [];
+
+  String? _errorMessage;
+  bool get hasError => _errorMessage != null;
+  String? get errorMessage => _errorMessage;
+
+  /// Fetch attendance insights, marks, and schedule in sequence.
+  ///
+  /// When [jwt] is empty the provider skips network work and emits a "Not
+  /// authenticated" error straight away. On success the previously cached data
+  /// is replaced; on failure the collections are cleared but the error message
+  /// remains available to the UI.
+  Future<void> loadAll(String studentUsername, String jwt) async {
+    if (jwt.trim().isEmpty) {
+      _errorMessage = 'Not authenticated';
+      _resetData();
+      notifyListeners();
+      return;
+    }
+
+    _errorMessage = null;
+    try {
+      final insightsResult = await _api.attendanceInsights(studentUsername, jwt);
+      final marksResult = await _api.marks(studentUsername, jwt);
+      final scheduleResult = await _api.schedule(studentUsername, jwt);
+
+      insights = insightsResult;
+      marksList = List<dynamic>.from(marksResult);
+      scheduleList = List<dynamic>.from(scheduleResult);
+    } catch (e) {
+      debugPrint('FETCH ERROR: $e');
+      _errorMessage = 'Unable to load dashboard data. Please try again.';
+      _resetData();
+    }
+
+    notifyListeners();
+  }
+
+  /// Convenience getter normalising the attendance percentage value.
+  ///
+  /// Falls back to `0.0` whenever the backend omits or mis-types the value so
+  /// charts/widgets never render `NaN`.
+  double get attendancePct {
+    final value = insights?['percentage'];
+    if (value is num) {
+      return value.toDouble();
+    }
+    return 0.0;
+  }
+
+  /// Reset locally cached payloads to safe defaults. Called at start-up and
+  /// whenever a fetch fails so downstream widgets never operate on null data.
+  void _resetData() {
+    insights = {
+      'total_sessions': 0,
+      'attended': 0,
+      'absent': 0,
+      'percentage': 0.0,
+    };
+    marksList = [];
+    scheduleList = [];
+  }
+}

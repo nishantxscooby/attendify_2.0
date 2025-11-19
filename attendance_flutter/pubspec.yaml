@@ -1,0 +1,30 @@
+name: attendance_flutter
+description: A Flutter app for the Student Attendance System
+
+publish_to: 'none' # since it's a local project
+
+environment:
+  sdk: '^3.9.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+
+  http: ^1.5.0
+  provider: ^6.0.5               # or use riverpod / bloc per preference
+  flutter_secure_storage: ^9.2.4
+  firebase_core: ^4.1.0
+  # firebase_messaging: ^16.0.1
+  camera: ^0.11.2              # live frame capture
+  image_picker: ^1.2.0         # optional easier capture
+  flutter_image_compress: ^2.4.0 # compress images before upload
+  permission_handler: ^12.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

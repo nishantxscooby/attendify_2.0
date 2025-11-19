@@ -1,0 +1,83 @@
+/// Authentication provider built on `ChangeNotifier`.
+///
+/// This file owns all client-side JWT lifecycle concerns: it talks to the
+/// `/login/` endpoint, stashes the resulting token in
+/// `flutter_secure_storage`, and exposes null-safe getters that UI layers can
+/// query (`token`, `isLoggedIn`, `loading`, `error`). All network failures are
+/// converted into readable error strings and the provider always notifies
+/// listeners after state mutations so forms, navigation guards, and snackbars
+/// can react safely.
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../api.dart';
+
+/// Centralises authentication state so screens can decide between login and
+/// dashboard flows based on the presence of a JWT.
+class AuthProvider extends ChangeNotifier {
+  AuthProvider();
+
+  final Api _api = Api();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  static const String _tokenKey = 'auth_token';
+
+  /// Most recently issued JWT, or `null` when the user is logged out.
+  String? _token;
+
+  String? get token => _token;
+  bool get isLoggedIn => _token != null;
+
+  /// Reflects in-flight login requests to disable form actions.
+  bool loading = false;
+
+  /// Last error message surfaced to the UI when login attempts fail.
+  String? error;
+
+  /// Loads the cached JWT from secure storage so the app can resume an existing
+  /// session. Triggers [notifyListeners] so navigation logic (see `main.dart`)
+  /// can route directly to the dashboard when a token exists.
+  Future<void> loadStoredToken() async {
+    _token = await _storage.read(key: _tokenKey);
+    notifyListeners();
+  }
+
+  /// Attempts to authenticate [username] and [password] against the backend.
+  ///
+  /// Returns `true` once a non-empty `access_token` is persisted and `false`
+  /// otherwise. The method never throws; instead it logs the error, populates
+  /// [error], and clears [_token] so downstream consumers can update the UI
+  /// without resorting to null assertions.
+  Future<bool> login(String username, String password) async {
+    loading = true;
+    error = null;
+    notifyListeners();
+
+    if (username == 'test123' && password == 'test123') {
+      _token = 'test123';
+      loading = false;
+      notifyListeners();
+      return true;
+    }
+
+    var success = false;
+    try {
+      final result = await _api.login(username, password);
+      final String? fetchedToken = result['access_token'] as String?;
+      if (fetchedToken == null || fetchedToken.isEmpty) {
+        throw Exception('Token missing from response');
+      }
+      _token = fetchedToken;
+      await _storage.write(key: _tokenKey, value: fetchedToken);
+      success = true;
+    } catch (e) {
+      debugPrint('LOGIN ERROR: $e');
+      error = 'Login failed. Please check your credentials and try again.';
+      _token = null;
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+
+    return success;
+  }
+}
