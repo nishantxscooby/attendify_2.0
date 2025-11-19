@@ -150,10 +150,15 @@ Open a pull request anytime.
 
 ## 📄 License
 
-MIT License  
-(You can replace this with any license you prefer)
+This project is open source and available under the MIT License - see `LICENSE`
 
 ---
+
+## 🔎 SEO (IGNORE)
+
+Repo description: "Attendify 2.0 — Open-source face recognition + geofencing attendance system"
+
+Topics: attendance, face-recognition, geofencing, nextjs, fastapi, flutter, open-source
 
 ## ❤️ Maintainer
 
