@@ -65,3 +65,10 @@ Final Version/
 # ignore final version secrets
 Final Version/secrets/
 Final Version/secrets/sa.json
+
+# ignore Final Version secrets
+Final Version/secrets/
+Final Version/*.key
+Final Version/*.pem
+Final Version/*.p12
+Final Version/.git/
