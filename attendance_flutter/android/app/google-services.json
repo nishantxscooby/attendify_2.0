@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "801891116344",
+    "project_number": "",
     "project_id": "attendify-nishant",
-    "storage_bucket": "attendify-nishant.firebasestorage.app"
+    "storage_bucket": ""
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:801891116344:android:3aa987f105634ee78a8dcd",
+        "mobilesdk_app_id": "",
         "android_client_info": {
           "package_name": "com.nishant.attendify"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDOWSaa_AkP9ksh4NzQkaAZ7JI_JA2IxL0"
+          "current_key": ""
         }
       ],
       "services": {
