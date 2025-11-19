@@ -83,3 +83,10 @@ Final Version/**/instance/*.db-shm
 *.db
 *.db-wal
 *.db-shm
+
+# secrets
+Final Version/secrets/
+attendance_flutter/android/app/google-services.json
+attendance_flutter/ios/Runner/GoogleService-Info.plist
+attendance_flutter/macos/Runner/GoogleService-Info.plist
+attendance_flutter/lib/firebase_options.dart
