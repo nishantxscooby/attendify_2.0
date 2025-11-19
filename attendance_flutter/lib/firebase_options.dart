@@ -41,48 +41,48 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC8uo4QWEBQZ-JLD22JH_TEtH8tnUH4E9g',
-    appId: '1:801891116344:web:d79d75d39d1ecc0b8a8dcd',
-    messagingSenderId: '801891116344',
-    projectId: 'attendify-nishant',
-    authDomain: 'attendify-nishant.firebaseapp.com',
-    storageBucket: 'attendify-nishant.firebasestorage.app',
-    measurementId: 'G-YHFFGMZ27H',
+    apiKey: '',
+    appId: '',
+    messagingSenderId: '',
+    projectId: '',
+    authDomain: '',
+    storageBucket: '',
+    measurementId: '',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDOWSaa_AkP9ksh4NzQkaAZ7JI_JA2IxL0',
-    appId: '1:801891116344:android:3aa987f105634ee78a8dcd',
-    messagingSenderId: '801891116344',
+    apiKey: '',
+    appId: '',
+    messagingSenderId: '',
     projectId: 'attendify-nishant',
-    storageBucket: 'attendify-nishant.firebasestorage.app',
+    storageBucket: '',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCilQr_7LOsAU-pzBNJyhqRHnubcV6YZuA',
-    appId: '1:801891116344:ios:31e07b5e5f5d20cd8a8dcd',
-    messagingSenderId: '801891116344',
+    apiKey: '',
+    appId: '',
+    messagingSenderId: '',
     projectId: 'attendify-nishant',
-    storageBucket: 'attendify-nishant.firebasestorage.app',
+    storageBucket: '',
     iosBundleId: 'com.example.attendanceFlutter',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCilQr_7LOsAU-pzBNJyhqRHnubcV6YZuA',
-    appId: '1:801891116344:ios:31e07b5e5f5d20cd8a8dcd',
-    messagingSenderId: '801891116344',
+    apiKey: '',
+    appId: '',
+    messagingSenderId: '',
     projectId: 'attendify-nishant',
-    storageBucket: 'attendify-nishant.firebasestorage.app',
+    storageBucket: '',
     iosBundleId: 'com.example.attendanceFlutter',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyC8uo4QWEBQZ-JLD22JH_TEtH8tnUH4E9g',
-    appId: '1:801891116344:web:56072ea192bdf8168a8dcd',
-    messagingSenderId: '801891116344',
+    apiKey: '',
+    appId: '',
+    messagingSenderId: '',
     projectId: 'attendify-nishant',
-    authDomain: 'attendify-nishant.firebaseapp.com',
-    storageBucket: 'attendify-nishant.firebasestorage.app',
-    measurementId: 'G-X26GKQ6FSF',
+    authDomain: '',
+    storageBucket: '',
+    measurementId: '',
   );
 }
